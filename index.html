@@ -1,0 +1,259 @@
+<title>My Contact Pass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+/* Layout: one phone-width column. A wristband-style pass with the QR on top, the details form below. */
+:root {
+  --bg: #f3f1f7;
+  --surface: #ffffff;
+  --fg: #1b1724;
+  --muted: #6b6479;
+  --line: #ddd8e6;
+  --accent: #6d3df2;
+  --accent-ink: #ffffff;
+  --band: #ff4f8b;
+  --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #110e18; --surface: #1c1726; --fg: #f1edf8; --muted: #a39bb3;
+    --line: #2f2840; --accent: #9b7bff; --accent-ink: #110e18; --band: #ff5f96;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #110e18; --surface: #1c1726; --fg: #f1edf8; --muted: #a39bb3;
+  --line: #2f2840; --accent: #9b7bff; --accent-ink: #110e18; --band: #ff5f96;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.5;
+  padding-inline: 16px; padding-block: 20px 48px;
+}
+.wrap { max-width: 440px; margin: 0 auto; display: grid; gap: 24px; }
+
+/* The pass */
+.pass {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
+  overflow: hidden; display: grid;
+}
+.pass-band {
+  background: var(--band); color: #1b0b12;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  padding: 8px 18px; display: flex; justify-content: space-between; gap: 12px;
+}
+.pass-body { padding: 20px 20px 18px; display: grid; gap: 16px; justify-items: center; }
+.qr-plate {
+  background: #ffffff; border-radius: 14px; padding: 14px; width: 100%; max-width: 300px;
+  aspect-ratio: 1; display: grid; place-items: center;
+}
+.qr-plate img { width: 100%; height: 100%; image-rendering: pixelated; display: block; }
+.who { text-align: center; display: grid; gap: 2px; min-width: 0; width: 100%; }
+.who h1 {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.45rem; line-height: 1.15;
+  margin: 0; text-wrap: balance; overflow-wrap: anywhere;
+}
+.who p { margin: 0; color: var(--muted); font-size: .95rem; overflow-wrap: anywhere; }
+.example-tag {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--band); border: 1px dashed var(--band); border-radius: 999px; padding: 3px 10px;
+}
+.perf {
+  border-top: 2px dashed var(--line); margin: 0 14px;
+}
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px 20px 20px; }
+button {
+  font: inherit; font-weight: 600; cursor: pointer; border-radius: 12px; padding: 13px 14px;
+  border: 1px solid var(--line); background: transparent; color: var(--fg);
+}
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); grid-column: 1 / -1; font-size: 1.05rem; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Form */
+.panel { display: grid; gap: 14px; }
+.panel h2 {
+  font-family: var(--font-display); font-weight: 500; font-size: .8rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted); margin: 0;
+}
+.field { display: grid; gap: 6px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 360px) { .row { grid-template-columns: 1fr; } }
+label { font-size: .85rem; font-weight: 600; }
+input, textarea {
+  font: inherit; width: 100%; min-width: 0; padding: 12px 13px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+}
+textarea { resize: vertical; min-height: 64px; }
+.hint { color: var(--muted); font-size: .85rem; margin: 0; }
+.saved { font-family: var(--font-mono); font-size: 12px; color: var(--muted); min-height: 1.2em; }
+
+/* Full-screen show mode: always white so scanners read it in a dark venue */
+.show {
+  position: fixed; inset: 0; z-index: 10; background: #ffffff; color: #111111;
+  display: grid; place-items: center; align-content: center; gap: 18px;
+  padding: calc(24px + env(safe-area-inset-top, 0px)) 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  cursor: pointer;
+}
+.show img { width: min(88vw, 70vh); height: auto; aspect-ratio: 1; image-rendering: pixelated; }
+.show .name { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; text-align: center; overflow-wrap: anywhere; }
+.show .tap { font-family: var(--font-mono); font-size: 12px; color: #666666; letter-spacing: .08em; text-transform: uppercase; }
+</style>
+
+<div class="wrap">
+  <section class="pass" aria-label="Your contact QR code">
+    <div class="pass-band"><span>Contact pass</span><span>Scan to save</span></div>
+    <div class="pass-body">
+      <div class="qr-plate"><img id="qr" alt="QR code with your contact card"></div>
+      <div class="who">
+        <h1 id="whoName">Your name</h1>
+        <p id="whoLine"></p>
+      </div>
+      <span class="example-tag" id="exampleTag">Example details. Edit below</span>
+    </div>
+    <div class="perf" aria-hidden="true"></div>
+    <div class="actions">
+      <button class="primary" id="showBtn" type="button">Show full screen</button>
+      <button id="saveImgBtn" type="button">Save image</button>
+      <button id="copyBtn" type="button">Copy details</button>
+    </div>
+  </section>
+
+  <form class="panel" id="form" autocomplete="on">
+    <h2>Your details</h2>
+    <div class="row">
+      <div class="field"><label for="first">First name</label><input id="first" name="first" autocomplete="given-name"></div>
+      <div class="field"><label for="last">Last name</label><input id="last" name="last" autocomplete="family-name"></div>
+    </div>
+    <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel"></div>
+    <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" inputmode="email" autocomplete="email"></div>
+    <div class="field"><label for="insta">Instagram</label><input id="insta" name="insta" placeholder="@handle" autocapitalize="off" autocomplete="off"></div>
+    <div class="field"><label for="link">Link (Spotify, SoundCloud, website)</label><input id="link" name="link" type="url" inputmode="url" placeholder="https://" autocapitalize="off"></div>
+    <div class="field"><label for="note">Note</label><textarea id="note" name="note" placeholder="Met at…"></textarea></div>
+    <p class="saved" id="saved" aria-live="polite"></p>
+    <p class="hint">Your details stay on this phone in this browser only. Nobody else who opens this link sees them. When someone scans the code, their phone offers to add you as a new contact.</p>
+  </form>
+</div>
+
+<div class="show" id="show" hidden role="dialog" aria-label="Full screen QR code">
+  <img id="showImg" alt="QR code with your contact card">
+  <div class="name" id="showName"></div>
+  <div class="tap">Tap anywhere to close</div>
+</div>
+
+<script>
+(function () {
+  var KEY = "contact-pass-v1";
+  var FIELDS = ["first", "last", "phone", "email", "insta", "link", "note"];
+  var EXAMPLE = { first: "Alex", last: "Rivera", phone: "+1 555 010 2030", email: "alex@example.com", insta: "@alexrivera", link: "", note: "" };
+  var el = function (id) { return document.getElementById(id); };
+  var isExample = true;
+
+  function load() {
+    try { var raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw); } catch (e) {}
+    return null;
+  }
+  function store(data) {
+    try { localStorage.setItem(KEY, JSON.stringify(data)); return true; } catch (e) { return false; }
+  }
+  function read() {
+    var d = {}; FIELDS.forEach(function (f) { d[f] = el(f).value.trim(); }); return d;
+  }
+  function esc(s) { return String(s).replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/([,;])/g, "\\$1"); }
+  function instaUrl(h) {
+    h = h.replace(/^@/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/\/$/, "");
+    return h ? "https://instagram.com/" + h : "";
+  }
+  function vcard(d) {
+    var full = [d.first, d.last].filter(Boolean).join(" ");
+    var lines = ["BEGIN:VCARD", "VERSION:3.0",
+      "N:" + esc(d.last) + ";" + esc(d.first) + ";;;",
+      "FN:" + esc(full || "Contact")];
+    if (d.phone) lines.push("TEL;TYPE=CELL:" + d.phone.replace(/[^\d+]/g, ""));
+    if (d.email) lines.push("EMAIL:" + esc(d.email));
+    var ig = d.insta ? instaUrl(d.insta) : "";
+    if (ig) lines.push("X-SOCIALPROFILE;TYPE=instagram:" + ig);
+    if (d.link) lines.push("URL:" + esc(d.link));
+    else if (ig) lines.push("URL:" + ig);
+    if (d.note) lines.push("NOTE:" + esc(d.note));
+    lines.push("END:VCARD");
+    return lines.join("\r\n");
+  }
+  function qrDataUrl(text, scale) {
+    qrcode.stringToBytes = qrcode.stringToBytesFuncs["UTF-8"];
+    var q = qrcode(0, "M"); q.addData(text); q.make();
+    var n = q.getModuleCount(), quiet = 2, size = (n + quiet * 2) * scale;
+    var c = document.createElement("canvas"); c.width = c.height = size;
+    var g = c.getContext("2d");
+    g.fillStyle = "#ffffff"; g.fillRect(0, 0, size, size); g.fillStyle = "#000000";
+    for (var r = 0; r < n; r++) for (var col = 0; col < n; col++)
+      if (q.isDark(r, col)) g.fillRect((col + quiet) * scale, (r + quiet) * scale, scale, scale);
+    return c.toDataURL("image/png");
+  }
+  function render() {
+    var d = read();
+    var full = [d.first, d.last].filter(Boolean).join(" ") || "Your name";
+    el("whoName").textContent = full;
+    el("showName").textContent = full;
+    el("whoLine").textContent = [d.phone, d.email].filter(Boolean).join("  ·  ");
+    el("exampleTag").hidden = !isExample;
+    if (typeof qrcode === "undefined") { el("whoLine").textContent = "The QR maker didn't load. Check your connection and reload."; return; }
+    var url = qrDataUrl(vcard(d), 12);
+    el("qr").src = url; el("showImg").src = url;
+  }
+
+  var saved = load();
+  var start = saved || EXAMPLE;
+  isExample = !saved;
+  FIELDS.forEach(function (f) { el(f).value = start[f] || ""; });
+
+  var timer;
+  el("form").addEventListener("input", function () {
+    isExample = false;
+    render();
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      el("saved").textContent = store(read()) ? "Saved on this phone" : "Couldn't save in this browser. Use Save image as a backup.";
+    }, 300);
+  });
+  el("form").addEventListener("submit", function (e) { e.preventDefault(); });
+
+  var wake = null;
+  function openShow() {
+    el("show").hidden = false;
+    try { if (navigator.wakeLock) navigator.wakeLock.request("screen").then(function (w) { wake = w; }).catch(function () {}); } catch (e) {}
+  }
+  function closeShow() {
+    el("show").hidden = true;
+    if (wake) { wake.release().catch(function () {}); wake = null; }
+  }
+  el("showBtn").addEventListener("click", openShow);
+  el("show").addEventListener("click", closeShow);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeShow(); });
+
+  el("saveImgBtn").addEventListener("click", function () {
+    openShow();
+    el("show").querySelector(".tap").textContent = "Press and hold the code to save it to Photos. Tap to close";
+  });
+  el("showBtn").addEventListener("click", function () {
+    el("show").querySelector(".tap").textContent = "Tap anywhere to close";
+  });
+
+  el("copyBtn").addEventListener("click", function () {
+    var d = read();
+    var text = [[d.first, d.last].filter(Boolean).join(" "), d.phone, d.email, d.insta, d.link].filter(Boolean).join("\n");
+    var btn = el("copyBtn");
+    var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = "Copy details"; }, 1600); };
+    try {
+      navigator.clipboard.writeText(text).then(function () { done("Copied"); }, function () { done("Copy blocked"); });
+    } catch (e) { done("Copy blocked"); }
+  });
+
+  render();
+})();
+</script>
