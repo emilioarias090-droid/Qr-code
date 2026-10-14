@@ -108,8 +108,9 @@ input, textarea {
   border: 1px solid var(--line); background: var(--surface); color: var(--fg);
 }
 textarea { resize: vertical; min-height: 64px; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: .55; font-style: italic; }
 .hint { color: var(--muted); font-size: .85rem; margin: 0; }
-.saved { font-family: var(--font-mono); font-size: 12px; color: var(--muted); min-height: 1.2em; }
+.saved { font-family: var(--font-mono); font-size: 13px; color: var(--accent); min-height: 1.2em; margin: 0; }
 
 /* Full-screen show mode: always white so scanners read it in a dark venue */
 .show {
@@ -146,11 +147,11 @@ textarea { resize: vertical; min-height: 64px; }
   <form class="panel" id="form" autocomplete="on">
     <h2>Your details</h2>
     <div class="row">
-      <div class="field"><label for="first">First name</label><input id="first" name="first" autocomplete="given-name" placeholder="Emilio"></div>
-      <div class="field"><label for="last">Last name</label><input id="last" name="last" autocomplete="family-name" placeholder="Arias"></div>
+      <div class="field"><label for="first">First name</label><input id="first" name="first" autocomplete="given-name"></div>
+      <div class="field"><label for="last">Last name</label><input id="last" name="last" autocomplete="family-name"></div>
     </div>
-    <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" type="tel" placeholder="Your number" inputmode="tel" autocomplete="tel"></div>
-    <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" placeholder="you@email.com" inputmode="email" autocomplete="email"></div>
+    <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel"></div>
+    <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" inputmode="email" autocomplete="email"></div>
     <div class="field"><label for="insta">Instagram</label><input id="insta" name="insta" placeholder="@handle" autocapitalize="off" autocomplete="off"></div>
     <div class="field"><label for="link">Link (Spotify, SoundCloud, website)</label><input id="link" name="link" type="url" inputmode="url" placeholder="https://" autocapitalize="off"></div>
     <div class="field"><label for="note">Note</label><textarea id="note" name="note" placeholder="Met at…"></textarea></div>
@@ -245,18 +246,23 @@ textarea { resize: vertical; min-height: 64px; }
   isExample = !saved;
   FIELDS.forEach(function (f) { el(f).value = (saved || EXAMPLE)[f] || ""; });
 
-  var timer;
-  el("form").addEventListener("input", function () {
+  var timer, last = JSON.stringify(read());
+  function save() {
+    var d = read(), now = JSON.stringify(d);
+    if (now === last) return;
+    last = now;
     isExample = false;
     render();
-    clearTimeout(timer);
-    timer = setTimeout(function () {
-      var d = read();
-      store(d);
-      try { history.replaceState(null, "", "#" + toHash(d)); } catch (e) {}
-      el("saved").textContent = "Saved";
-    }, 300);
-  });
+    store(d);
+    try { history.replaceState(null, "", "#" + toHash(d)); } catch (e) {}
+    el("saved").textContent = "✓ Saved on this phone";
+  }
+  function soon() { clearTimeout(timer); timer = setTimeout(save, 300); }
+  // Safari autofill doesn't always fire "input", so also catch change/blur and check periodically.
+  el("form").addEventListener("input", soon);
+  el("form").addEventListener("change", soon);
+  el("form").addEventListener("focusout", soon);
+  setInterval(save, 1500);
   el("form").addEventListener("submit", function (e) { e.preventDefault(); });
 
   var wake = null;
