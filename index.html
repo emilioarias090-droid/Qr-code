@@ -1,3 +1,4 @@
+<!--pass:start-->
 <title>My Contact Pass</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -135,8 +136,9 @@ textarea { resize: vertical; min-height: 64px; }
     <div class="field"><label for="insta">Instagram</label><input id="insta" name="insta" placeholder="@handle" autocapitalize="off" autocomplete="off"></div>
     <div class="field"><label for="link">Link (Spotify, SoundCloud, website)</label><input id="link" name="link" type="url" inputmode="url" placeholder="https://" autocapitalize="off"></div>
     <div class="field"><label for="note">Note</label><textarea id="note" name="note" placeholder="Met at…"></textarea></div>
+    <button class="primary" id="saveBtn" type="button" hidden>Save my pass</button>
     <p class="saved" id="saved" aria-live="polite"></p>
-    <p class="hint">Your details stay on this phone in this browser only. Nobody else who opens this link sees them. When someone scans the code, their phone offers to add you as a new contact.</p>
+    <p class="hint">Saving puts your details into this page, so they show up on any phone or browser where you open the link. Anyone you share the link with can see them. When someone scans the code, their phone offers to add you as a new contact.</p>
   </form>
 </div>
 
@@ -146,6 +148,7 @@ textarea { resize: vertical; min-height: 64px; }
   <div class="tap">Tap anywhere to close</div>
 </div>
 
+<script type="application/json" id="passData">{}</script>
 <script>
 (function () {
   var KEY = "contact-pass-v1";
@@ -207,19 +210,69 @@ textarea { resize: vertical; min-height: 64px; }
     el("qr").src = url; el("showImg").src = url;
   }
 
-  var saved = load();
-  var start = saved || EXAMPLE;
-  isExample = !saved;
+  var embedded = {};
+  try { embedded = JSON.parse(el("passData").textContent) || {}; } catch (e) {}
+  var hasEmbedded = FIELDS.some(function (f) { return embedded[f]; });
+  var draft = load();
+  var start = draft || (hasEmbedded ? embedded : EXAMPLE);
+  isExample = !draft && !hasEmbedded;
   FIELDS.forEach(function (f) { el(f).value = start[f] || ""; });
 
   var timer;
   el("form").addEventListener("input", function () {
     isExample = false;
     render();
+    el("saveBtn").hidden = false;
+    el("saved").textContent = "";
     clearTimeout(timer);
-    timer = setTimeout(function () {
-      el("saved").textContent = store(read()) ? "Saved on this phone" : "Couldn't save in this browser. Use Save image as a backup.";
-    }, 300);
+    timer = setTimeout(function () { store(read()); }, 300);
+  });
+
+  // Rebuild this page with the details baked in, from the source between the pass markers.
+  function pageSource(data) {
+    var out = "", on = false;
+    Array.prototype.forEach.call(document.body.childNodes, function (n) {
+      if (n.nodeType === 8 && n.data === "pass:start") on = true;
+      if (on) {
+        if (n.nodeType === 1) {
+          if (n.id === "passData") {
+            out += '<script type="application/json" id="passData">' +
+              JSON.stringify(data).replace(/</g, "\\u003c") + "<\/script>";
+          } else out += n.outerHTML;
+        } else if (n.nodeType === 8) out += "<!--" + n.data + "-->";
+        else if (n.nodeType === 3) out += n.data.trim() ? "" : n.data;
+      }
+      if (n.nodeType === 8 && n.data === "pass:end") on = false;
+    });
+    // The end marker comes after this script, so it isn't parsed yet when this runs.
+    return out.indexOf("<!--pass:end-->") < 0 ? out + "\n<!--pass:end-->" : out;
+  }
+  var PRISTINE = null;
+  var artifactApi = null;
+  if (window.claude && window.claude.use) {
+    window.claude.use("artifact").then(function (a) { artifactApi = a; }, function () {});
+  }
+  el("saveBtn").addEventListener("click", function () {
+    var btn = el("saveBtn");
+    if (!artifactApi) {
+      el("saved").textContent = "Saving only works when you're signed in to Claude. Your details are kept in this browser for now.";
+      return;
+    }
+    var reset = (document.head.querySelector("style") || {}).textContent || "";
+    var html = '<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>' +
+      reset + "</style></head><body>" + PRISTINE.replace(/<script type="application\/json" id="passData">[\s\S]*?<\/script>/,
+        '<script type="application/json" id="passData">' + JSON.stringify(read()).replace(/</g, "\\u003c") + "<\/script>") + "</body></html>";
+    btn.disabled = true; btn.textContent = "Saving…";
+    artifactApi.publish(html).then(function () {
+      try { localStorage.removeItem(KEY); } catch (e) {}
+      el("saved").textContent = "Saved. Your pass now opens with these details everywhere.";
+      btn.hidden = true;
+    }, function (err) {
+      var code = err && err.code;
+      el("saved").textContent = code === "not_writer" || code === "not_granted"
+        ? "Only the owner can save this pass. Your details are kept in this browser."
+        : "Couldn't save just now. Try again in a moment.";
+    }).then(function () { btn.disabled = false; btn.textContent = "Save my pass"; });
   });
   el("form").addEventListener("submit", function (e) { e.preventDefault(); });
 
@@ -254,6 +307,9 @@ textarea { resize: vertical; min-height: 64px; }
     } catch (e) { done("Copy blocked"); }
   });
 
+  PRISTINE = pageSource(embedded);
+  if (draft) el("saveBtn").hidden = false;
   render();
 })();
 </script>
+<!--pass:end-->
