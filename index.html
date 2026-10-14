@@ -249,6 +249,8 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .55; f
   var saved = fromHash() || load();
   isExample = !saved;
   FIELDS.forEach(function (f) { el(f).value = (saved || EXAMPLE)[f] || ""; });
+  // Keep the details in the address so "Add to Home Screen" carries them over.
+  if (saved && !location.hash) { try { history.replaceState(null, "", "#" + toHash(saved)); } catch (e) {} }
 
   var timer, last = JSON.stringify(read());
   function save() {
