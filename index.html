@@ -133,7 +133,7 @@ textarea { resize: vertical; min-height: 64px; }
         <h1 id="whoName">Your name</h1>
         <p id="whoLine"></p>
       </div>
-      <span class="example-tag" id="exampleTag">Example details. Edit below</span>
+      <span class="example-tag" id="exampleTag">Add your details below</span>
     </div>
     <div class="perf" aria-hidden="true"></div>
     <div class="actions">
@@ -146,11 +146,11 @@ textarea { resize: vertical; min-height: 64px; }
   <form class="panel" id="form" autocomplete="on">
     <h2>Your details</h2>
     <div class="row">
-      <div class="field"><label for="first">First name</label><input id="first" name="first" autocomplete="given-name"></div>
-      <div class="field"><label for="last">Last name</label><input id="last" name="last" autocomplete="family-name"></div>
+      <div class="field"><label for="first">First name</label><input id="first" name="first" autocomplete="given-name" placeholder="Emilio"></div>
+      <div class="field"><label for="last">Last name</label><input id="last" name="last" autocomplete="family-name" placeholder="Arias"></div>
     </div>
-    <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel"></div>
-    <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" inputmode="email" autocomplete="email"></div>
+    <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" type="tel" placeholder="Your number" inputmode="tel" autocomplete="tel"></div>
+    <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" placeholder="you@email.com" inputmode="email" autocomplete="email"></div>
     <div class="field"><label for="insta">Instagram</label><input id="insta" name="insta" placeholder="@handle" autocapitalize="off" autocomplete="off"></div>
     <div class="field"><label for="link">Link (Spotify, SoundCloud, website)</label><input id="link" name="link" type="url" inputmode="url" placeholder="https://" autocapitalize="off"></div>
     <div class="field"><label for="note">Note</label><textarea id="note" name="note" placeholder="Met at…"></textarea></div>
@@ -169,7 +169,7 @@ textarea { resize: vertical; min-height: 64px; }
 (function () {
   var KEY = "contact-pass-v1";
   var FIELDS = ["first", "last", "phone", "email", "insta", "link", "note"];
-  var EXAMPLE = { first: "Alex", last: "Rivera", phone: "+1 555 010 2030", email: "alex@example.com", insta: "@alexrivera", link: "", note: "" };
+  var EXAMPLE = { first: "", last: "", phone: "", email: "", insta: "", link: "", note: "" };
   var el = function (id) { return document.getElementById(id); };
   var isExample = true;
 
