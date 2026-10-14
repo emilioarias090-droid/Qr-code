@@ -1,2 +1,7 @@
-# Qr-code
-Can yoy create a QR code for me so when I go to music events and stuff like that I can have my QR code ready quick with my number name email and those important stuff. Give it to me so I can access it quick and on the move
+# My Contact Pass
+
+A phone-ready QR code with your name, number, email and socials. People scan it and their phone offers to save you as a contact.
+
+Live page (once GitHub Pages is on): https://emilioarias090-droid.github.io/Qr-code/
+
+Your details are never stored in this repo. They're saved on your phone and in the page's address only.

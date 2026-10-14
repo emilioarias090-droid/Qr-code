@@ -1,9 +1,21 @@
-<!--pass:start-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>My Contact Pass</title>
+<meta name="theme-color" content="#110e18">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="My Pass">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="vendor/qrcode.js"></script>
 <style>
 /* Layout: one phone-width column. A wristband-style pass with the QR on top, the details form below. */
 :root {
@@ -35,8 +47,12 @@
 body {
   background: var(--bg); color: var(--fg);
   font-family: var(--font-body); font-size: 16px; line-height: 1.5;
-  padding-inline: 16px; padding-block: 20px 48px;
+  margin: 0;
+  padding-inline: 16px;
+  padding-block: calc(20px + env(safe-area-inset-top, 0px)) calc(48px + env(safe-area-inset-bottom, 0px));
 }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
 .wrap { max-width: 440px; margin: 0 auto; display: grid; gap: 24px; }
 
 /* The pass */
@@ -73,6 +89,7 @@ button {
   font: inherit; font-weight: 600; cursor: pointer; border-radius: 12px; padding: 13px 14px;
   border: 1px solid var(--line); background: transparent; color: var(--fg);
 }
+a.btn { display: grid; place-items: center; text-decoration: none; font-weight: 600; border-radius: 12px; padding: 13px 14px; border: 1px solid var(--line); color: var(--fg); }
 button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); grid-column: 1 / -1; font-size: 1.05rem; }
 button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
@@ -105,7 +122,8 @@ textarea { resize: vertical; min-height: 64px; }
 .show .name { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; text-align: center; overflow-wrap: anywhere; }
 .show .tap { font-family: var(--font-mono); font-size: 12px; color: #666666; letter-spacing: .08em; text-transform: uppercase; }
 </style>
-
+</head>
+<body>
 <div class="wrap">
   <section class="pass" aria-label="Your contact QR code">
     <div class="pass-band"><span>Contact pass</span><span>Scan to save</span></div>
@@ -120,7 +138,7 @@ textarea { resize: vertical; min-height: 64px; }
     <div class="perf" aria-hidden="true"></div>
     <div class="actions">
       <button class="primary" id="showBtn" type="button">Show full screen</button>
-      <button id="saveImgBtn" type="button">Save image</button>
+      <a class="btn" id="saveImgBtn" href="#" download="my-contact-qr.png">Save image</a>
       <button id="copyBtn" type="button">Copy details</button>
     </div>
   </section>
@@ -136,9 +154,8 @@ textarea { resize: vertical; min-height: 64px; }
     <div class="field"><label for="insta">Instagram</label><input id="insta" name="insta" placeholder="@handle" autocapitalize="off" autocomplete="off"></div>
     <div class="field"><label for="link">Link (Spotify, SoundCloud, website)</label><input id="link" name="link" type="url" inputmode="url" placeholder="https://" autocapitalize="off"></div>
     <div class="field"><label for="note">Note</label><textarea id="note" name="note" placeholder="Met at…"></textarea></div>
-    <button class="primary" id="saveBtn" type="button" hidden>Save my pass</button>
     <p class="saved" id="saved" aria-live="polite"></p>
-    <p class="hint">Saving puts your details into this page, so they show up on any phone or browser where you open the link. Anyone you share the link with can see them. When someone scans the code, their phone offers to add you as a new contact.</p>
+    <p class="hint">Your details are saved on this phone and in this page's address. Add the page to your home screen after filling it in, and it opens with your details every time. Nothing is sent anywhere.</p>
   </form>
 </div>
 
@@ -148,7 +165,6 @@ textarea { resize: vertical; min-height: 64px; }
   <div class="tap">Tap anywhere to close</div>
 </div>
 
-<script type="application/json" id="passData">{}</script>
 <script>
 (function () {
   var KEY = "contact-pass-v1";
@@ -163,6 +179,22 @@ textarea { resize: vertical; min-height: 64px; }
   }
   function store(data) {
     try { localStorage.setItem(KEY, JSON.stringify(data)); return true; } catch (e) { return false; }
+  }
+  // Details also live in the address (#p=...), so a home-screen icon keeps them even
+  // though iPhone home-screen apps don't share Safari's storage.
+  function toHash(d) {
+    var bytes = new TextEncoder().encode(JSON.stringify(d)), bin = "";
+    bytes.forEach(function (b) { bin += String.fromCharCode(b); });
+    return "p=" + btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function fromHash() {
+    var m = location.hash.match(/^#p=([\w-]+)/);
+    if (!m) return null;
+    try {
+      var bin = atob(m[1].replace(/-/g, "+").replace(/_/g, "/"));
+      var bytes = Uint8Array.from(bin, function (c) { return c.charCodeAt(0); });
+      return JSON.parse(new TextDecoder().decode(bytes));
+    } catch (e) { return null; }
   }
   function read() {
     var d = {}; FIELDS.forEach(function (f) { d[f] = el(f).value.trim(); }); return d;
@@ -205,74 +237,25 @@ textarea { resize: vertical; min-height: 64px; }
     el("showName").textContent = full;
     el("whoLine").textContent = [d.phone, d.email].filter(Boolean).join("  ·  ");
     el("exampleTag").hidden = !isExample;
-    if (typeof qrcode === "undefined") { el("whoLine").textContent = "The QR maker didn't load. Check your connection and reload."; return; }
     var url = qrDataUrl(vcard(d), 12);
-    el("qr").src = url; el("showImg").src = url;
+    el("qr").src = url; el("showImg").src = url; el("saveImgBtn").href = url;
   }
 
-  var embedded = {};
-  try { embedded = JSON.parse(el("passData").textContent) || {}; } catch (e) {}
-  var hasEmbedded = FIELDS.some(function (f) { return embedded[f]; });
-  var draft = load();
-  var start = draft || (hasEmbedded ? embedded : EXAMPLE);
-  isExample = !draft && !hasEmbedded;
-  FIELDS.forEach(function (f) { el(f).value = start[f] || ""; });
+  var saved = fromHash() || load();
+  isExample = !saved;
+  FIELDS.forEach(function (f) { el(f).value = (saved || EXAMPLE)[f] || ""; });
 
   var timer;
   el("form").addEventListener("input", function () {
     isExample = false;
     render();
-    el("saveBtn").hidden = false;
-    el("saved").textContent = "";
     clearTimeout(timer);
-    timer = setTimeout(function () { store(read()); }, 300);
-  });
-
-  // Rebuild this page with the details baked in, from the source between the pass markers.
-  function pageSource(data) {
-    var out = "", on = false;
-    Array.prototype.forEach.call(document.body.childNodes, function (n) {
-      if (n.nodeType === 8 && n.data === "pass:start") on = true;
-      if (on) {
-        if (n.nodeType === 1) {
-          if (n.id === "passData") {
-            out += '<script type="application/json" id="passData">' +
-              JSON.stringify(data).replace(/</g, "\\u003c") + "<\/script>";
-          } else out += n.outerHTML;
-        } else if (n.nodeType === 8) out += "<!--" + n.data + "-->";
-        else if (n.nodeType === 3) out += n.data.trim() ? "" : n.data;
-      }
-      if (n.nodeType === 8 && n.data === "pass:end") on = false;
-    });
-    // The end marker comes after this script, so it isn't parsed yet when this runs.
-    return out.indexOf("<!--pass:end-->") < 0 ? out + "\n<!--pass:end-->" : out;
-  }
-  var PRISTINE = null;
-  var artifactApi = null;
-  if (window.claude && window.claude.use) {
-    window.claude.use("artifact").then(function (a) { artifactApi = a; }, function () {});
-  }
-  el("saveBtn").addEventListener("click", function () {
-    var btn = el("saveBtn");
-    if (!artifactApi) {
-      el("saved").textContent = "Saving only works when you're signed in to Claude. Your details are kept in this browser for now.";
-      return;
-    }
-    var reset = (document.head.querySelector("style") || {}).textContent || "";
-    var html = '<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>' +
-      reset + "</style></head><body>" + PRISTINE.replace(/<script type="application\/json" id="passData">[\s\S]*?<\/script>/,
-        '<script type="application/json" id="passData">' + JSON.stringify(read()).replace(/</g, "\\u003c") + "<\/script>") + "</body></html>";
-    btn.disabled = true; btn.textContent = "Saving…";
-    artifactApi.publish(html).then(function () {
-      try { localStorage.removeItem(KEY); } catch (e) {}
-      el("saved").textContent = "Saved. Your pass now opens with these details everywhere.";
-      btn.hidden = true;
-    }, function (err) {
-      var code = err && err.code;
-      el("saved").textContent = code === "not_writer" || code === "not_granted"
-        ? "Only the owner can save this pass. Your details are kept in this browser."
-        : "Couldn't save just now. Try again in a moment.";
-    }).then(function () { btn.disabled = false; btn.textContent = "Save my pass"; });
+    timer = setTimeout(function () {
+      var d = read();
+      store(d);
+      try { history.replaceState(null, "", "#" + toHash(d)); } catch (e) {}
+      el("saved").textContent = "Saved";
+    }, 300);
   });
   el("form").addEventListener("submit", function (e) { e.preventDefault(); });
 
@@ -289,27 +272,18 @@ textarea { resize: vertical; min-height: 64px; }
   el("show").addEventListener("click", closeShow);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeShow(); });
 
-  el("saveImgBtn").addEventListener("click", function () {
-    openShow();
-    el("show").querySelector(".tap").textContent = "Press and hold the code to save it to Photos. Tap to close";
-  });
-  el("showBtn").addEventListener("click", function () {
-    el("show").querySelector(".tap").textContent = "Tap anywhere to close";
-  });
-
   el("copyBtn").addEventListener("click", function () {
     var d = read();
     var text = [[d.first, d.last].filter(Boolean).join(" "), d.phone, d.email, d.insta, d.link].filter(Boolean).join("\n");
     var btn = el("copyBtn");
     var done = function (msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = "Copy details"; }, 1600); };
-    try {
-      navigator.clipboard.writeText(text).then(function () { done("Copied"); }, function () { done("Copy blocked"); });
-    } catch (e) { done("Copy blocked"); }
+    try { navigator.clipboard.writeText(text).then(function () { done("Copied"); }, function () { done("Copy blocked"); }); }
+    catch (e) { done("Copy blocked"); }
   });
 
-  PRISTINE = pageSource(embedded);
-  if (draft) el("saveBtn").hidden = false;
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
   render();
 })();
 </script>
-<!--pass:end-->
+</body>
+</html>
