@@ -121,6 +121,8 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .55; f
 }
 .show img { -webkit-touch-callout: default; -webkit-user-select: auto; width: min(88vw, 70vh); height: auto; aspect-ratio: 1; image-rendering: pixelated; }
 .show .name { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; text-align: center; overflow-wrap: anywhere; }
+.share-btn { background: #111111; color: #ffffff; border-color: #111111; padding: 14px 28px; font-size: 1.05rem; }
+.version { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin: 0; }
 .show .tap { font-family: var(--font-mono); font-size: 12px; color: #666666; letter-spacing: .08em; text-transform: uppercase; }
 </style>
 </head>
@@ -157,12 +159,14 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .55; f
     <div class="field"><label for="note">Note</label><textarea id="note" name="note" placeholder="Met at…"></textarea></div>
     <p class="saved" id="saved" aria-live="polite"></p>
     <p class="hint">Your details are saved on this phone and in this page's address. Add the page to your home screen after filling it in, and it opens with your details every time. Nothing is sent anywhere.</p>
+    <p class="version">Version 4</p>
   </form>
 </div>
 
 <div class="show" id="show" hidden role="dialog" aria-label="Full screen QR code">
   <img id="showImg" alt="QR code with your contact card">
   <div class="name" id="showName"></div>
+  <button class="share-btn" id="shareBtn" type="button" hidden>Save to Photos</button>
   <div class="tap" id="showTap">Tap outside the code to close</div>
 </div>
 
@@ -274,29 +278,35 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .55; f
     el("show").hidden = true;
     if (wake) { wake.release().catch(function () {}); wake = null; }
   }
+  var pngFile = function () {
+    var bin = atob(el("qr").src.split(",")[1]);
+    return new File([Uint8Array.from(bin, function (c) { return c.charCodeAt(0); })], "my-contact-qr.png", { type: "image/png" });
+  };
+  var canShareImg = function () {
+    try { return !!(navigator.canShare && navigator.canShare({ files: [pngFile()] })); } catch (e) { return false; }
+  };
   el("showBtn").addEventListener("click", function () {
+    el("shareBtn").hidden = true;
     el("showTap").textContent = "Tap outside the code to close";
     openShow();
   });
-
-  // iPhone ignores download links, so use the share sheet ("Save Image"),
-  // and fall back to press-and-hold on the full-screen code.
+  // iPhone ignores download links. Save opens the code full screen, where press-and-hold
+  // always offers "Save to Photos", plus a share-sheet button where the phone supports it.
   el("saveImgBtn").addEventListener("click", function () {
-    var fallback = function () {
-      el("showTap").textContent = "Press and hold the code, then tap Save to Photos. Tap elsewhere to close";
-      openShow();
-    };
-    try {
-      var bin = atob(el("qr").src.split(",")[1]);
-      var file = new File([Uint8Array.from(bin, function (c) { return c.charCodeAt(0); })], "my-contact-qr.png", { type: "image/png" });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file] }).catch(function (e) { if (e && e.name !== "AbortError") fallback(); });
-        return;
-      }
-    } catch (e) {}
-    fallback();
+    var share = canShareImg();
+    el("shareBtn").hidden = !share;
+    el("showTap").textContent = (share ? "Or press" : "Press") + " and hold the code, then tap Save to Photos. Tap outside to close";
+    openShow();
   });
-  el("show").addEventListener("click", function (e) { if (e.target !== el("showImg")) closeShow(); });
+  el("shareBtn").addEventListener("click", function (e) {
+    e.stopPropagation();
+    try {
+      navigator.share({ files: [pngFile()] }).catch(function (err) {
+        if (err && err.name !== "AbortError") el("showTap").textContent = "Press and hold the code, then tap Save to Photos";
+      });
+    } catch (err) { el("showTap").textContent = "Press and hold the code, then tap Save to Photos"; }
+  });
+  el("show").addEventListener("click", function (e) { if (e.target !== el("showImg") && e.target !== el("shareBtn")) closeShow(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeShow(); });
 
   el("copyBtn").addEventListener("click", function () {
