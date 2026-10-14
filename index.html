@@ -119,7 +119,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .55; f
   padding: calc(24px + env(safe-area-inset-top, 0px)) 20px calc(24px + env(safe-area-inset-bottom, 0px));
   cursor: pointer;
 }
-.show img { width: min(88vw, 70vh); height: auto; aspect-ratio: 1; image-rendering: pixelated; }
+.show img { -webkit-touch-callout: default; -webkit-user-select: auto; width: min(88vw, 70vh); height: auto; aspect-ratio: 1; image-rendering: pixelated; }
 .show .name { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; text-align: center; overflow-wrap: anywhere; }
 .show .tap { font-family: var(--font-mono); font-size: 12px; color: #666666; letter-spacing: .08em; text-transform: uppercase; }
 </style>
@@ -139,7 +139,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .55; f
     <div class="perf" aria-hidden="true"></div>
     <div class="actions">
       <button class="primary" id="showBtn" type="button">Show full screen</button>
-      <a class="btn" id="saveImgBtn" href="#" download="my-contact-qr.png">Save image</a>
+      <button id="saveImgBtn" type="button">Save image</button>
       <button id="copyBtn" type="button">Copy details</button>
     </div>
   </section>
@@ -163,7 +163,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .55; f
 <div class="show" id="show" hidden role="dialog" aria-label="Full screen QR code">
   <img id="showImg" alt="QR code with your contact card">
   <div class="name" id="showName"></div>
-  <div class="tap">Tap anywhere to close</div>
+  <div class="tap" id="showTap">Tap outside the code to close</div>
 </div>
 
 <script>
@@ -239,7 +239,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .55; f
     el("whoLine").textContent = [d.phone, d.email].filter(Boolean).join("  ·  ");
     el("exampleTag").hidden = !isExample;
     var url = qrDataUrl(vcard(d), 12);
-    el("qr").src = url; el("showImg").src = url; el("saveImgBtn").href = url;
+    el("qr").src = url; el("showImg").src = url;
   }
 
   var saved = fromHash() || load();
@@ -274,8 +274,29 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .55; f
     el("show").hidden = true;
     if (wake) { wake.release().catch(function () {}); wake = null; }
   }
-  el("showBtn").addEventListener("click", openShow);
-  el("show").addEventListener("click", closeShow);
+  el("showBtn").addEventListener("click", function () {
+    el("showTap").textContent = "Tap outside the code to close";
+    openShow();
+  });
+
+  // iPhone ignores download links, so use the share sheet ("Save Image"),
+  // and fall back to press-and-hold on the full-screen code.
+  el("saveImgBtn").addEventListener("click", function () {
+    var fallback = function () {
+      el("showTap").textContent = "Press and hold the code, then tap Save to Photos. Tap elsewhere to close";
+      openShow();
+    };
+    try {
+      var bin = atob(el("qr").src.split(",")[1]);
+      var file = new File([Uint8Array.from(bin, function (c) { return c.charCodeAt(0); })], "my-contact-qr.png", { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file] }).catch(function (e) { if (e && e.name !== "AbortError") fallback(); });
+        return;
+      }
+    } catch (e) {}
+    fallback();
+  });
+  el("show").addEventListener("click", function (e) { if (e.target !== el("showImg")) closeShow(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeShow(); });
 
   el("copyBtn").addEventListener("click", function () {
